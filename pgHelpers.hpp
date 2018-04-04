@@ -21,5 +21,6 @@ public:
     pgconn();
     ~pgconn();
     std::map<unsigned long long, flight> find_flights(std::string from, std::string to);
+    std::map<unsigned long long, flight> find_all();
 };
 

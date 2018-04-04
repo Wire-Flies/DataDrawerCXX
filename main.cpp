@@ -29,22 +29,12 @@ std::pair<int,int> convertLongLatToCoords(double longitude, double lat){
     double one_long = IMAGE_SIZE / (max_long - min_long);
     double one_lat = IMAGE_SIZE / (max_lat - min_lat);
 
-    int x = (longitude - min_long) * one_long;
-    int y = (lat - min_lat) * one_lat;
+    int x = IMAGE_SIZE - (longitude - min_long) * one_long;
+    int y = IMAGE_SIZE - (lat - min_lat) * one_lat;
     return {x,y};
 }
 
-int main(int argc, char *argv[]){
-    /*for(int x = 0; x < 250; x++){
-        for(int y = 0; y < 125; y++){
-            b.set_pixel(x, y, rgb(120,120,120));
-        }
-    }
-    b.save_image("testfile.bmp");*/
-
-    const std::string from = argv[1];
-    const std::string to = argv[2];
-    pgconn conn;
+void gen_pic(pgconn& conn, std::string from, std::string to, unsigned long long targetid){    
     auto m = conn.find_flights(from, to);
     std::cout << "found: " << m.size() << " flights" << std::endl;
     for(auto &entry : m){
@@ -82,5 +72,88 @@ int main(int argc, char *argv[]){
         }
     }
 
-    b.save_image(from + "_to_" + to + ".bmp");
+    for(auto pos : m[targetid].positions){
+        auto pixelpos = convertLongLatToCoords(pos.longitude, pos.latitude);
+        rgb r;
+        for(int x = -5; x <= 5; x++){
+            for(int y = -5; y <= 5; y++){
+                if(pixelpos.first + x < 0 || pixelpos.first + x >= IMAGE_SIZE || pixelpos.second + y < 0 || pixelpos.second + y >= IMAGE_SIZE){
+                    continue;
+                }
+                int xx = pixelpos.first + x;
+                int yy = pixelpos.second + y;
+                b.get_pixel<rgb>(xx, yy, r);
+                b.set_pixel(xx, yy,  rgb(255,255,0));
+            }
+        }
+    }
+
+    b.save_image("target/" + from + "_to_" + to + "_target_" + std::to_string(targetid) + ".bmp");
+}
+
+void gen_all_pics(pgconn& conn){
+    auto m = conn.find_all();
+    std::cout << "found: " << m.size() << " flights" << std::endl;
+    for(auto &entry : m){
+        for(auto pos : entry.second.positions){
+            max_long = std::max(max_long, pos.longitude);
+            max_lat = std::max(max_lat, pos.latitude);
+            min_long = std::min(min_long, pos.longitude);
+            min_lat = std::min(min_lat, pos.latitude);
+        }
+    }
+    std::cout << "max long: " << max_long << ", max_lat: " << max_lat << ", min long: " << min_long << ", min lat: " << min_lat << std::endl;
+
+    bitmap_image b(2000, 2000);
+    for(int x = 0; x < 2000; x++){
+        for(int y = 0; y < 2000; y++){
+            b.set_pixel(x, y, rgb(0,0,0));
+        }
+    }
+
+    for(auto & entry : m){
+        for(auto pos : entry.second.positions){
+            auto pixelpos = convertLongLatToCoords(pos.longitude, pos.latitude);
+            rgb r;
+            for(int x = -0; x <= 0; x++){
+                for(int y = -0; y <= 0; y++){
+                    if(pixelpos.first + x < 0 || pixelpos.first + x >= IMAGE_SIZE || pixelpos.second + y < 0 || pixelpos.second + y >= IMAGE_SIZE){
+                        continue;
+                    }
+                    int xx = pixelpos.first + x;
+                    int yy = pixelpos.second + y;
+                    b.get_pixel<rgb>(xx, yy, r);
+                    b.set_pixel(xx, yy,  r + rgb(100,100,100));
+                }
+            }
+        }
+    }
+
+    b.save_image("target/all_pic.bmp");
+}
+
+int main(int argc, char *argv[]){
+    /*for(int x = 0; x < 250; x++){
+        for(int y = 0; y < 125; y++){
+            b.set_pixel(x, y, rgb(120,120,120));
+        }
+    }
+    b.save_image("testfile.bmp");*/
+    if(argc == 1){
+        //Draw all
+        std::cout << "Generating all pictures" << std::endl;
+        pgconn conn;
+        gen_all_pics(conn);
+
+    }else{
+        const std::string from = argv[1];
+        const std::string to = argv[2];
+        pgconn conn;
+
+        auto m = conn.find_flights(from, to);
+        for(auto & entry : m){
+            std::cout << "generating picture for: " << entry.first << std::endl;
+            gen_pic(conn, from, to, entry.first);
+        }
+    }
 }

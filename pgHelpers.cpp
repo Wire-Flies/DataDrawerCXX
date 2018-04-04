@@ -34,3 +34,23 @@ std::map<unsigned long long, flight> pgconn::find_flights(std::string from, std:
     return flights;
 }
 
+std::map<unsigned long long, flight> pgconn::find_all(){
+    pqxx::work work(*conn);
+    std::string query = "SELECT flights.flight_id, snapshot_id, longitude, latitude FROM flights JOIN flight_data ON flights.flight_id = flight_data.flight_id ORDER BY snapshot_id LIMIT 4000000;";
+    pqxx::result r = work.exec(query);
+    
+    std::map<unsigned long long, flight> flights;
+
+    for(int i = 0; i < r.size(); i++){
+        auto l = r[i];
+        unsigned long long id = l[0].as<unsigned long long>(0);
+        unsigned long long snapshot_id = l[1].as<unsigned long long>(0); 
+        double longitude = l[2].as<double>(0);
+        double latitude = l[3].as<double>(0);
+
+        flights[id].positions.push_back({snapshot_id, longitude, latitude});
+    }
+
+    return flights;
+}
+
