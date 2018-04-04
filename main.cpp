@@ -29,7 +29,7 @@ std::pair<int,int> convertLongLatToCoords(double longitude, double lat){
     double one_long = IMAGE_SIZE / (max_long - min_long);
     double one_lat = IMAGE_SIZE / (max_lat - min_lat);
 
-    int x = IMAGE_SIZE - (longitude - min_long) * one_long;
+    int x = (longitude - min_long) * one_long;
     int y = IMAGE_SIZE - (lat - min_lat) * one_lat;
     return {x,y};
 }
